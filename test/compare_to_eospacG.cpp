@@ -62,6 +62,9 @@ constexpr int NTIMES = 10;
 
 int main(int argc, char* argv[]) {
 
+  #ifndef SINGULARITY_INVERT_AT_SETUP
+  exit 0;
+  #endif
   herr_t status = H5_SUCCESS;
 
   #ifdef PORTABILITY_STRATEGY_KOKKOS
@@ -227,6 +230,9 @@ int main(int argc, char* argv[]) {
     eospacTofRE = tableHandle[1];
     eospacEofRT = tableHandle[2];
 
+    EOS_INTEGER eosgputest{};
+    eos_GpuOffloadData(&eosgputest);
+    int useGpu=1;
     std::cout << "\t\tGenerating interpolation points for rho-T tables"
               << std::endl;
     start = std::chrono::high_resolution_clock::now();
@@ -268,7 +274,7 @@ int main(int argc, char* argv[]) {
         eosSafeInterpolate(&eospacPofRT, nXYPairs,
                            xVals.data(), yVals.data(), vars.data(),
                            dx.data(), dy.data(),
-                           "PofRT", Verbosity::Quiet);
+                           "PofRT", Verbosity::Quiet, useGpu);
       }
       stop = std::chrono::high_resolution_clock::now();
       durationEospac += std::chrono::duration_cast<duration>(stop-start);
@@ -314,7 +320,7 @@ int main(int argc, char* argv[]) {
       fileNameStreamS << "/home/annap/singularity-eos/myTests/pressSpiner_h_" << matid << ".out";
       std::ofstream myfileS (fileNameStreamS.str());
       std::ostringstream fileNameStreamE;
-      fileNameStreamE << "/home/annap/singularity-eos/myTests/pressEospac_h_" << matid << ".out";
+      fileNameStreamE << "/home/annap/singularity-eos/myTests/pressEospacG_h_" << matid << ".out";
       std::ofstream myfileE (fileNameStreamE.str());
       std::cout <<" writing to " << fileNameStreamS.str() << std::endl;
 
@@ -422,7 +428,7 @@ int main(int argc, char* argv[]) {
         eosSafeInterpolate(&eospacTofRE, nXYPairs,
                            xVals.data(), yVals.data(), vars.data(),
                            dx.data(), dy.data(),
-                           "TofRE", Verbosity::Quiet);
+                           "TofRE", Verbosity::Quiet, useGpu);
       }
       stop = std::chrono::high_resolution_clock::now();
       durationEospac += std::chrono::duration_cast<duration>(stop-start);
@@ -515,7 +521,7 @@ int main(int argc, char* argv[]) {
       fileNameStreamS2 << "/home/annap/singularity-eos/myTests/tempSpinerE_h_" << matid << ".out";
       std::ofstream myfileS2 (fileNameStreamS2.str());
       std::ostringstream fileNameStreamEe;
-      fileNameStreamEe << "/home/annap/singularity-eos/myTests/tempEospac_h_" << matid << ".out";
+      fileNameStreamEe << "/home/annap/singularity-eos/myTests/tempEospacG_h_" << matid << ".out";
       std::ofstream myfileEe (fileNameStreamEe.str());
       std::cout <<" writing to " << fileNameStreamS1.str() << std::endl;
 

@@ -26,11 +26,20 @@ if(SINGULARITY_USE_EOSPAC AND SINGULARITY_USE_HDF5 AND SINGULARITY_TEST_SESAME)
   add_executable(compare_to_eospac
                  compare_to_eospac.cpp
                  ${CMAKE_SOURCE_DIR}/sesame2spiner/io_eospac.cpp)
+  add_executable(compare_to_eospacG
+                 compare_to_eospacG.cpp
+                 ${CMAKE_SOURCE_DIR}/sesame2spiner/io_eospac.cpp)
   target_link_libraries(compare_to_eospac Catch2::Catch2 eos singularity-eos::libs singularity-eos::flags)
+  target_link_libraries(compare_to_eospacG Catch2::Catch2 eos singularity-eos::libs singularity-eos::flags)
   target_include_directories(compare_to_eospac PUBLIC
                              ${CMAKE_SOURCE_DIR}/utils/spiner
                              ${CMAKE_SOURCE_DIR}/utils/ports-of-call
                              ${CMAKE_SOURCE_DIR}/utils/sesame2spiner)
+  target_include_directories(compare_to_eospacG PUBLIC
+                             ${CMAKE_SOURCE_DIR}/utils/spiner
+                             ${CMAKE_SOURCE_DIR}/utils/ports-of-call
+                             ${CMAKE_SOURCE_DIR}/utils/sesame2spiner)
+  target_compile_options(compare_to_eospac PUBLIC -fopenmp)
 endif()
 
 catch_discover_tests(eos_unit_tests)

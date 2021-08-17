@@ -22,6 +22,9 @@
 #include <vector>
 #include <regex>
 #include "io_eospac.hpp"
+#include <chrono>
+#include <omp.h>
+using duration = std::chrono::microseconds;
 
 void eosGetMetadata(int matid, SesameMetadata& metadata,
                     Verbosity eospacWarn) {
@@ -485,6 +488,12 @@ EOS_INTEGER eosSafeLoad(int ntables, int matid,
   }
   #endif
 
+  #ifdef SINGULARITY_EOS_LIN_INTERP
+  for (int i = 0; i < ntables; i++) {
+    eos_SetOption(&tableHandle[i], &EOS_LINEAR, NULL, &errorCode);
+  }
+  #endif
+
   eos_LoadTables(&ntables, tableHandle, &errorCode);
   if ( errorCode != EOS_OK && eospacWarn != Verbosity::Quiet ) {
     for (int i = 0; i < ntables; i++) {
@@ -515,13 +524,86 @@ bool eosSafeInterpolate(EOS_INTEGER *table,
                         EOS_REAL dx[],
                         EOS_REAL dy[],
                         const char tablename[],
-                        Verbosity eospacWarn) {
+                        Verbosity eospacWarn,
+			int useGpu) {
   EOS_INTEGER errorCode = EOS_OK;
   EOS_CHAR errorMessage[EOS_MaxErrMsgLen];
   
-  eos_Interpolate(table, &nxypairs,
+
+
+  if (useGpu==0) {
+    duration durationEospac = duration::zero();
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto stop  = std::chrono::high_resolution_clock::now();
+
+    start = std::chrono::high_resolution_clock::now();
+
+    eos_Interpolate(table, &nxypairs,
                   xVals, yVals, var, dx, dy,
                   &errorCode);
+    stop = std::chrono::high_resolution_clock::now();
+
+    durationEospac += std::chrono::duration_cast<duration>(stop-start); 
+
+    std::cout << "\t\t...EOSPACC time/point (microseconds) = "
+ 	      << durationEospac.count() / static_cast<Real>(nxypairs)
+	      << std::endl;
+
+  } else {
+    duration durationEospac = duration::zero();
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto stop  = std::chrono::high_resolution_clock::now();
+
+
+    int h, t;
+    h = omp_get_initial_device();
+    t = omp_get_default_device();
+    EOS_REAL * xValsd = (EOS_REAL *) omp_target_alloc( sizeof(EOS_REAL) * nxypairs, t);
+    EOS_REAL * yValsd = (EOS_REAL *) omp_target_alloc( sizeof(EOS_REAL) * nxypairs, t);
+    EOS_REAL * vard = (EOS_REAL *) omp_target_alloc( sizeof(EOS_REAL) * nxypairs, t);
+    EOS_REAL * dxd = (EOS_REAL *) omp_target_alloc( sizeof(EOS_REAL) * nxypairs, t);
+    EOS_REAL * dyd = (EOS_REAL *) omp_target_alloc( sizeof(EOS_REAL) * nxypairs, t);
+
+    omp_target_memcpy(xValsd, xVals, sizeof(EOS_REAL)*nxypairs,
+		      0, 0,
+		      t, h);
+    omp_target_memcpy(yValsd, yVals, sizeof(EOS_REAL)*nxypairs,
+		      0, 0,
+		      t, h);
+
+    start = std::chrono::high_resolution_clock::now();
+
+    eos_Interpolate(table, &nxypairs,
+                  xValsd, yValsd, vard, dxd, dyd,
+                  &errorCode);
+    stop = std::chrono::high_resolution_clock::now();
+
+    omp_target_memcpy(var, vard, sizeof(EOS_REAL)*nxypairs,
+		      0, 0,
+		      h, t);
+    omp_target_memcpy(dx, dxd, sizeof(EOS_REAL)*nxypairs,
+		      0, 0,
+		      h, t);
+    omp_target_memcpy(dy, dyd, sizeof(EOS_REAL)*nxypairs,
+		      0, 0,
+		      h, t);
+
+    omp_target_free(xValsd, t);
+    omp_target_free(yValsd, t);
+    omp_target_free(vard, t);
+    omp_target_free(dxd, t);
+    omp_target_free(dyd, t);
+
+    durationEospac += std::chrono::duration_cast<duration>(stop-start); 
+
+    std::cout << "\t\t...EOSPACG time/point (microseconds) = "
+ 	      << durationEospac.count() / static_cast<Real>(nxypairs)
+	      << std::endl;
+
+
+  }
   #ifndef SINGULARITY_EOS_SKIP_EXTRAP
   if (errorCode != EOS_OK && eospacWarn == Verbosity::Debug) {   
     eos_GetErrorMessage(&errorCode, errorMessage);

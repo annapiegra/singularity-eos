@@ -240,7 +240,8 @@ bool eosSafeInterpolate(EOS_INTEGER *table,
 			EOS_REAL dx[],
 			EOS_REAL dy[],
 			const char tablename[],
-			Verbosity eospacWarn);
+			Verbosity eospacWarn,
+			int useGpu=0);
 
 void eosSafeTableInfo(EOS_INTEGER* table,
                       EOS_INTEGER numInfoItems,
